@@ -1,6 +1,12 @@
-import type { CompanyMetricsResponse } from "./type";
+import type { CompanyMetricsResponse } from "./types";
 
-export type Scenario = "normal" | "loading" | "error" | "zero" | "missing";
+type InternalMockMode = "normal" | "missing" | "zero" | "error";
+
+/**
+ * Change this during development to simulate edge cases.
+ * In a real app this wouldn't exist.
+ */
+const MOCK_MODE: InternalMockMode = "normal";
 
 const MOCK_NORMAL: CompanyMetricsResponse = {
   companyId: "acme-001",
@@ -16,7 +22,7 @@ const MOCK_NORMAL: CompanyMetricsResponse = {
 
 const MOCK_ZERO: CompanyMetricsResponse = {
   companyId: "acme-002",
-  companyName: "Zero Enrol Co",
+  companyName: "Acme Corp",
   metrics: {
     totalEmployeesEnrolled: 0,
     activeThisMonth: 0,
@@ -28,7 +34,7 @@ const MOCK_ZERO: CompanyMetricsResponse = {
 
 const MOCK_MISSING: CompanyMetricsResponse = {
   companyId: "acme-003",
-  companyName: "Partial Data Ltd",
+  companyName: "Acme Corp",
   metrics: {
     totalEmployeesEnrolled: 148,
     // activeThisMonth missing
@@ -38,19 +44,16 @@ const MOCK_MISSING: CompanyMetricsResponse = {
   },
 };
 
-export async function fetchCompanyMetrics(scenario: Scenario): Promise<CompanyMetricsResponse> {
-  await new Promise((r) => setTimeout(r, 600));
+export async function fetchCompanyMetrics(): Promise<CompanyMetricsResponse> {
+  // Simulate network latency
+  await new Promise((r) => setTimeout(r, 700));
 
-  if (scenario === "loading") {
-    await new Promise((r) => setTimeout(r, 1400));
-    return MOCK_NORMAL;
-  }
-
-  if (scenario === "error") {
+  if (MOCK_MODE === "error") {
     throw new Error("Failed to load company metrics. Please try again.");
   }
 
-  if (scenario === "zero") return MOCK_ZERO;
-  if (scenario === "missing") return MOCK_MISSING;
+  if (MOCK_MODE === "zero") return MOCK_ZERO;
+  if (MOCK_MODE === "missing") return MOCK_MISSING;
+
   return MOCK_NORMAL;
 }
