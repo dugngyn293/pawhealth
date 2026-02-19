@@ -8,6 +8,24 @@ import UserMenu from "@/components/UserMenu";
 import { formatInt, formatOneDecimal, formatPercent, safeNumber } from "@/lib/format";
 import type { CompanyMetricsResponse } from "@/lib/types";
 
+/** ---------- Helpers for edge cases ---------- */
+function isNum(v: unknown): v is number {
+  return typeof v === "number" && Number.isFinite(v);
+}
+
+function numberOrZero(v: unknown): number {
+  return safeNumber(v, 0);
+}
+
+function monthLabel(month1to12: number) {
+  return new Date(2000, month1to12 - 1, 1).toLocaleString(undefined, { month: "short" });
+}
+
+function monthYearLabel(year: number, month1to12: number) {
+  return new Date(year, month1to12 - 1, 1).toLocaleString(undefined, { month: "long", year: "numeric" });
+}
+
+/** ---------- Icons ---------- */
 function IconUsers() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" className="text-slate-600 dark:text-slate-200" fill="none" stroke="currentColor" strokeWidth="2">
@@ -50,23 +68,9 @@ function IconAlert() {
   );
 }
 
-function riskTone(alerts: number) {
-  if (alerts >= 7) return { tone: "riskHigh" as const, label: "High Concern" };
-  if (alerts >= 4) return { tone: "riskModerate" as const, label: "Moderate Concern" };
-  if (alerts >= 1) return { tone: "riskLow" as const, label: "Low Concern" };
-  return { tone: "neutral" as const, label: "No Active Alerts" };
-}
 function IconSun() {
   return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      className="text-amber-500"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
+    <svg width="18" height="18" viewBox="0 0 24 24" className="text-amber-500" fill="none" stroke="currentColor" strokeWidth="2">
       <circle cx="12" cy="12" r="5" />
       <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
     </svg>
@@ -75,22 +79,24 @@ function IconSun() {
 
 function IconMoon() {
   return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      className="text-slate-700 dark:text-slate-200"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
+    <svg width="18" height="18" viewBox="0 0 24 24" className="text-slate-700 dark:text-slate-200" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
     </svg>
   );
 }
 
-function engagementTone(score: number) {
-  return score >= 8 ? "engagement" : "neutral";
+/** ---------- Conditional styling logic ---------- */
+function riskTone(alerts: number | null) {
+  if (alerts === null) return { tone: "neutral" as const, label: "Unavailable" };
+  if (alerts >= 7) return { tone: "riskHigh" as const, label: "High Concern" };
+  if (alerts >= 4) return { tone: "riskModerate" as const, label: "Moderate Concern" };
+  if (alerts >= 1) return { tone: "riskLow" as const, label: "Low Concern" };
+  return { tone: "neutral" as const, label: "No Active Alerts" };
+}
+
+function engagementTone(score: number | null) {
+  if (score === null) return "neutral" as const;
+  return score >= 8 ? ("engagement" as const) : ("neutral" as const);
 }
 
 function EngagementBar({ score }: { score: number }) {
@@ -113,16 +119,20 @@ function EngagementBar({ score }: { score: number }) {
 export default function DashboardSection() {
   const { theme, toggle } = useTheme();
 
+  const now = new Date();
+  const [year, setYear] = useState(now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth() + 1); // 1–12
+
   const [data, setData] = useState<CompanyMetricsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const load = () => {
+  const load = (y: number, m: number) => {
     let alive = true;
     setLoading(true);
     setError("");
 
-    fetchCompanyMetrics()
+    fetchCompanyMetrics({ year: y, month: m })
       .then((res) => {
         if (!alive) return;
         setData(res);
@@ -143,24 +153,54 @@ export default function DashboardSection() {
   };
 
   useEffect(() => {
-    const cleanup = load();
+    const cleanup = load(year, month);
     return cleanup;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [year, month]);
 
   const computed = useMemo(() => {
     const metrics = data?.metrics ?? {};
-    const enrolled = safeNumber(metrics.totalEmployeesEnrolled, 0);
-    const active = safeNumber(metrics.activeThisMonth, 0);
-    const weekly = safeNumber(metrics.weeklyCheckupsCompleted, 0);
-    const engagement = safeNumber(metrics.avgEngagementScore, 0);
-    const alerts = safeNumber(metrics.riskAlertsTriggered, 0);
 
-    const participationRate = enrolled > 0 ? active / enrolled : 0;
-    const avgWeeklyPerActive = active > 0 ? weekly / active : 0;
+    const enrolledRaw = metrics.totalEmployeesEnrolled;
+    const activeRaw = metrics.activeThisMonth;
+    const weeklyRaw = metrics.weeklyCheckupsCompleted;
+    const engagementRaw = metrics.avgEngagementScore;
+    const alertsRaw = metrics.riskAlertsTriggered;
 
-    return { enrolled, active, weekly, engagement, alerts, participationRate, avgWeeklyPerActive };
+    const enrolledDisplay = isNum(enrolledRaw) ? enrolledRaw : null;
+    const activeDisplay = isNum(activeRaw) ? activeRaw : null;
+    const weeklyDisplay = isNum(weeklyRaw) ? weeklyRaw : null;
+    const engagementDisplay = isNum(engagementRaw) ? engagementRaw : null;
+    const alertsDisplay = isNum(alertsRaw) ? alertsRaw : null;
+
+    const enrolledCalc = numberOrZero(enrolledRaw);
+    const activeCalc = numberOrZero(activeRaw);
+    const weeklyCalc = numberOrZero(weeklyRaw);
+
+    const participationRate = enrolledCalc > 0 ? activeCalc / enrolledCalc : 0;
+    const avgWeeklyPerActive = activeCalc > 0 ? weeklyCalc / activeCalc : 0;
+
+    const participationIsMeaningful = enrolledCalc > 0 && isNum(activeRaw);
+    const avgWeeklyIsMeaningful = activeCalc > 0 && isNum(weeklyRaw);
+
+    return {
+      enrolledDisplay,
+      activeDisplay,
+      weeklyDisplay,
+      engagementDisplay,
+      alertsDisplay,
+      enrolledCalc,
+      participationRate,
+      avgWeeklyPerActive,
+      participationIsMeaningful,
+      avgWeeklyIsMeaningful,
+    };
   }, [data]);
+
+  const years = useMemo(() => {
+    const current = now.getFullYear();
+    return [current, current - 1, current - 2, current - 3];
+  }, [now]);
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors">
@@ -179,19 +219,46 @@ export default function DashboardSection() {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Month / Year selector */}
+            <div className="flex items-center gap-2">
+              <select
+                value={month}
+                onChange={(e) => setMonth(Number(e.target.value))}
+                className="h-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 text-sm text-slate-700 dark:text-slate-200"
+                aria-label="Select month"
+              >
+                {Array.from({ length: 12 }).map((_, i) => {
+                  const m = i + 1;
+                  return (
+                    <option key={m} value={m}>
+                      {monthLabel(m)}
+                    </option>
+                  );
+                })}
+              </select>
+
+              <select
+                value={year}
+                onChange={(e) => setYear(Number(e.target.value))}
+                className="h-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 text-sm text-slate-700 dark:text-slate-200"
+                aria-label="Select year"
+              >
+                {years.map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Theme toggle */}
             <button
               onClick={toggle}
-              className="flex items-center justify-center rounded-xl
-                        border border-slate-200 dark:border-slate-700
-                        h-9 w-9
-                        bg-white dark:bg-slate-800
-                        shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700
-                        transition-colors"
+              className="flex items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 h-9 w-9 bg-white dark:bg-slate-800 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
               aria-label="Toggle theme"
             >
               {theme === "light" ? <IconMoon /> : <IconSun />}
             </button>
-
 
             <UserMenu
               initials="HR"
@@ -201,7 +268,6 @@ export default function DashboardSection() {
               onUpdateProfile={() => alert("Open Update Profile modal")}
               onLogout={() => alert("Log out")}
             />
-
           </div>
         </div>
       </div>
@@ -211,7 +277,7 @@ export default function DashboardSection() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-semibold text-slate-900 dark:text-slate-50">{data?.companyName ?? "—"}</h1>
-          <p className="mt-2 text-slate-500 dark:text-slate-400">Engagement Overview • Last 30 Days</p>
+          <p className="mt-2 text-slate-500 dark:text-slate-400">Engagement Overview • {monthYearLabel(year, month)}</p>
         </div>
 
         {/* States */}
@@ -230,7 +296,7 @@ export default function DashboardSection() {
             <div className="font-semibold">Something went wrong</div>
             <div className="mt-1 text-sm">{error}</div>
             <button
-              onClick={load}
+              onClick={() => load(year, month)}
               className="mt-4 rounded-xl bg-white dark:bg-slate-900 px-4 py-2 text-sm font-medium text-rose-700 dark:text-rose-200 shadow-sm border border-rose-200 dark:border-rose-300/30"
             >
               Retry
@@ -239,30 +305,45 @@ export default function DashboardSection() {
         ) : (
           <>
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              <MetricCard icon={<IconUsers />} title="Total Enrolled" value={formatInt(computed.enrolled)} subtitle="Employees in program" />
+              <MetricCard
+                icon={<IconUsers />}
+                title="Total Enrolled"
+                value={computed.enrolledDisplay === null ? "—" : formatInt(computed.enrolledDisplay)}
+                subtitle={computed.enrolledDisplay === null ? "Data unavailable" : "Employees in program"}
+              />
 
               <MetricCard
                 icon={<IconTrend />}
                 title="Active This Month"
-                value={formatInt(computed.active)}
-                subtitle={<span>{formatPercent(computed.participationRate)} participation rate</span>}
+                value={computed.activeDisplay === null ? "—" : formatInt(computed.activeDisplay)}
+                subtitle={
+                  computed.enrolledCalc === 0
+                    ? "0.0% participation rate (no enrolled employees)"
+                    : computed.participationIsMeaningful
+                    ? `${formatPercent(computed.participationRate)} participation rate`
+                    : "Participation rate unavailable"
+                }
               />
 
               <MetricCard
                 icon={<IconBars />}
                 title="Weekly Checkups"
-                value={formatInt(computed.weekly)}
-                subtitle={<span>Avg {formatOneDecimal(computed.avgWeeklyPerActive)} per active user</span>}
+                value={computed.weeklyDisplay === null ? "—" : formatInt(computed.weeklyDisplay)}
+                subtitle={
+                  computed.avgWeeklyIsMeaningful
+                    ? `Avg ${formatOneDecimal(computed.avgWeeklyPerActive)} per active user`
+                    : "Average per active user unavailable"
+                }
               />
 
               {(() => {
-                const r = riskTone(computed.alerts);
+                const r = riskTone(computed.alertsDisplay);
                 return (
                   <MetricCard
                     icon={<IconAlert />}
                     title="Risk Alerts Triggered"
-                    value={formatInt(computed.alerts)}
-                    subtitle="Requires HR attention"
+                    value={computed.alertsDisplay === null ? "—" : formatInt(computed.alertsDisplay)}
+                    subtitle={computed.alertsDisplay === null ? "Data unavailable" : "Requires HR attention"}
                     tone={r.tone}
                     rightSlot={<Pill label={r.label} tone={r.tone} />}
                   />
@@ -278,19 +359,36 @@ export default function DashboardSection() {
                 }
                 title="Average Engagement Score"
                 value={
-                  <span>
-                    {formatOneDecimal(computed.engagement)}
-                    <span className="text-base text-slate-500 dark:text-slate-400"> / 10</span>
-                  </span>
+                  computed.engagementDisplay === null ? (
+                    "—"
+                  ) : (
+                    <span>
+                      {formatOneDecimal(computed.engagementDisplay)}
+                      <span className="text-base text-slate-500 dark:text-slate-400"> / 10</span>
+                    </span>
+                  )
                 }
-                subtitle={<EngagementBar score={computed.engagement} />}
-                tone={engagementTone(computed.engagement)}
-                rightSlot={<Pill label={computed.engagement >= 8 ? "Strong Engagement" : "Needs Improvement"} tone={engagementTone(computed.engagement)} />}
+                subtitle={
+                  computed.engagementDisplay === null ? (
+                    <span className="text-sm text-slate-600 dark:text-slate-300">Data unavailable</span>
+                  ) : (
+                    <EngagementBar score={computed.engagementDisplay} />
+                  )
+                }
+                tone={engagementTone(computed.engagementDisplay)}
+                rightSlot={
+                  <Pill
+                    label={
+                      computed.engagementDisplay === null
+                        ? "Unavailable"
+                        : computed.engagementDisplay >= 8
+                        ? "Strong Engagement"
+                        : "Needs Improvement"
+                    }
+                    tone={engagementTone(computed.engagementDisplay)}
+                  />
+                }
               />
-            </div>
-
-            <div className="mt-8 text-xs text-slate-500 dark:text-slate-400">
-              Edge cases handled: zero enrolled (participation = 0%), missing metrics default to 0, loading and error states.
             </div>
           </>
         )}
