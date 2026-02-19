@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import MetricCard, { Pill } from "./MetricCard";
-import { useCompanyMetrics } from "@/lib/useCompanyMetrics";
+import MetricCard, { Pill } from "../MetricCard";
+import { useCompanyMetrics } from "@/hooks/useCompanyMetrics";
 import { engagementTone, monthYearLabel, riskTone } from "@/lib/dashboard/helpers";
 import { DashboardTopBar } from "@/components/dashboard/DashboardTopBar";
 import { EngagementBar } from "@/components/dashboard/EngagementBar";
@@ -28,13 +28,18 @@ export default function DashboardSection() {
       <div className="mx-auto max-w-6xl px-6 py-10">
         <div className="mb-8">
           <h1 className="text-4xl font-semibold text-slate-900 dark:text-slate-50">{data?.companyName ?? "—"}</h1>
-          <p className="mt-2 text-slate-500 dark:text-slate-400">Engagement Overview • {monthYearLabel(year, month)}</p>
+          <p className="mt-2 text-slate-500 dark:text-slate-400">
+            Engagement Overview • {monthYearLabel(year, month)}
+          </p>
         </div>
 
         {loading ? (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6 shadow-sm transition-colors">
+              <div
+                key={i}
+                className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6 shadow-sm transition-colors"
+              >
                 <div className="h-4 w-40 rounded bg-slate-100 dark:bg-slate-700" />
                 <div className="mt-4 h-10 w-24 rounded bg-slate-100 dark:bg-slate-700" />
                 <div className="mt-4 h-4 w-56 rounded bg-slate-100 dark:bg-slate-700" />
@@ -54,6 +59,56 @@ export default function DashboardSection() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            {/* ✅ FEATURED hero: Engagement Score */}
+            <div className="md:col-span-2">
+              <MetricCard
+                featured
+                layout="center"
+                tone="engagement"
+                icon={
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    className="text-indigo-600 dark:text-indigo-300"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path d="M12 20l9-5-9-5-9 5 9 5z" />
+                    <path d="M12 12l9-5-9-5-9 5 9 5z" />
+                  </svg>
+                }
+                title="Average Engagement Score"
+                value={
+                  computed.engagementDisplay === null ? (
+                    "—"
+                  ) : (
+                    <span>
+                      {formatOneDecimal(computed.engagementDisplay)}
+                      <span className="text-base text-slate-500 dark:text-slate-400"> / 10</span>
+                    </span>
+                  )
+                }
+                subtitle={
+                  computed.engagementDisplay === null ? "Data unavailable" : <EngagementBar score={computed.engagementDisplay} />
+                }
+                rightSlot={
+                  <Pill
+                    label={
+                      computed.engagementDisplay === null
+                        ? "Unavailable"
+                        : computed.engagementDisplay >= 8
+                          ? "Strong Engagement"
+                          : "Needs Improvement"
+                    }
+                    tone={engagementTone(computed.engagementDisplay)}
+                  />
+                }
+              />
+            </div>
+
+            {/* Other metrics */}
             <MetricCard
               icon={<IconUsers />}
               title="Total Enrolled"
@@ -69,8 +124,8 @@ export default function DashboardSection() {
                 computed.enrolledCalc === 0
                   ? "0.0% participation rate (no enrolled employees)"
                   : computed.participationIsMeaningful
-                  ? `${formatPercent(computed.participationRate)} participation rate`
-                  : "Participation rate unavailable"
+                    ? `${formatPercent(computed.participationRate)} participation rate`
+                    : "Participation rate unavailable"
               }
             />
 
@@ -98,40 +153,6 @@ export default function DashboardSection() {
                 />
               );
             })()}
-
-            <MetricCard
-              icon={
-                <svg width="18" height="18" viewBox="0 0 24 24" className="text-slate-600 dark:text-slate-200" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 20l9-5-9-5-9 5 9 5z" />
-                  <path d="M12 12l9-5-9-5-9 5 9 5z" />
-                </svg>
-              }
-              title="Average Engagement Score"
-              value={
-                computed.engagementDisplay === null ? (
-                  "—"
-                ) : (
-                  <span>
-                    {formatOneDecimal(computed.engagementDisplay)}
-                    <span className="text-base text-slate-500 dark:text-slate-400"> / 10</span>
-                  </span>
-                )
-              }
-              subtitle={computed.engagementDisplay === null ? "Data unavailable" : <EngagementBar score={computed.engagementDisplay} />}
-              tone={engagementTone(computed.engagementDisplay)}
-              rightSlot={
-                <Pill
-                  label={
-                    computed.engagementDisplay === null
-                      ? "Unavailable"
-                      : computed.engagementDisplay >= 8
-                      ? "Strong Engagement"
-                      : "Needs Improvement"
-                  }
-                  tone={engagementTone(computed.engagementDisplay)}
-                />
-              }
-            />
           </div>
         )}
       </div>
