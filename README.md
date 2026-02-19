@@ -147,3 +147,30 @@ This project is a small Next.js + React dashboard that shows monthly employee we
 - Improve accessibility (keyboard/focus behavior, ARIA review, contrast audit).
 - Add trend/history views (month-over-month deltas, charts, filtering).
 - Add authentication and role-aware actions instead of placeholder menu handlers.
+
+
+
+
+
+## Project Structure
+
+```text
+app/
+  layout.tsx               # Root layout + ThemeProvider
+  page.tsx                 # Dashboard entry page
+components/
+  MetricCard.tsx           # Shared metric card + tone variants
+  ThemeProvider.tsx        # Theme context + localStorage persistence
+  UserMenu.tsx             # Top-right profile dropdown
+  dashboard/
+    DashboardSection.tsx   # Main dashboard composition
+    DashboardTopBar.tsx    # Brand, date filters, theme toggle, user menu
+    EngagementBar.tsx      # Visual score bar (0-10)
+hooks/
+  useCompanyMetrics.ts     # Data loading, error/loading states, computed KPIs
+lib/
+  api.ts                   # Mock API + scenario modes
+  types.ts                 # Response and metric types
+  format.ts                # Number/percent formatting helpers
+  dashboard/helpers.ts     # Labels, tones, numeric guards
+```

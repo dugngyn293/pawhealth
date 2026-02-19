@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchCompanyMetrics } from "@/lib/api";
 import type { CompanyMetricsResponse } from "@/lib/types";
 import { isNum, numberOrZero } from "@/lib/dashboard/helpers";
@@ -9,51 +9,48 @@ export function useCompanyMetrics(year: number, month: number) {
   const [data, setData] = useState<CompanyMetricsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const requestIdRef = useRef(0);
 
-  const load = useCallback((y: number, m: number) => {
-    let alive = true;
+  const load = useCallback(async (y: number, m: number) => {
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     setError("");
 
-    fetchCompanyMetrics({ year: y, month: m })
-      .then((res) => {
-        if (!alive) return;
-        setData(res);
-      })
-      .catch((e: unknown) => {
-        if (!alive) return;
-        setError(e instanceof Error ? e.message : "Unknown error");
-        setData(null);
-      })
-      .finally(() => {
-        if (!alive) return;
+    try {
+      const res = await fetchCompanyMetrics({ year: y, month: m });
+      if (requestId !== requestIdRef.current) return;
+      setData(res);
+    } catch (e: unknown) {
+      if (requestId !== requestIdRef.current) return;
+      setError(e instanceof Error ? e.message : "Unknown error");
+      setData(null);
+    } finally {
+      if (requestId === requestIdRef.current) {
         setLoading(false);
-      });
-
-    return () => {
-      alive = false;
-    };
+      }
+    }
   }, []);
 
   useEffect(() => {
-    const cleanup = load(year, month);
-    return cleanup;
+    void load(year, month);
   }, [year, month, load]);
 
   const computed = useMemo(() => {
-    const metrics = data?.metrics ?? {};
+    const {
+      totalEmployeesEnrolled: enrolledRaw,
+      activeThisMonth: activeRaw,
+      weeklyCheckupsCompleted: weeklyRaw,
+      avgEngagementScore: engagementRaw,
+      riskAlertsTriggered: alertsRaw,
+    } = data?.metrics ?? {};
 
-    const enrolledRaw = metrics.totalEmployeesEnrolled;
-    const activeRaw = metrics.activeThisMonth;
-    const weeklyRaw = metrics.weeklyCheckupsCompleted;
-    const engagementRaw = metrics.avgEngagementScore;
-    const alertsRaw = metrics.riskAlertsTriggered;
+    const toDisplay = (value: unknown) => (isNum(value) ? value : null);
 
-    const enrolledDisplay = isNum(enrolledRaw) ? enrolledRaw : null;
-    const activeDisplay = isNum(activeRaw) ? activeRaw : null;
-    const weeklyDisplay = isNum(weeklyRaw) ? weeklyRaw : null;
-    const engagementDisplay = isNum(engagementRaw) ? engagementRaw : null;
-    const alertsDisplay = isNum(alertsRaw) ? alertsRaw : null;
+    const enrolledDisplay = toDisplay(enrolledRaw);
+    const activeDisplay = toDisplay(activeRaw);
+    const weeklyDisplay = toDisplay(weeklyRaw);
+    const engagementDisplay = toDisplay(engagementRaw);
+    const alertsDisplay = toDisplay(alertsRaw);
 
     const enrolledCalc = numberOrZero(enrolledRaw);
     const activeCalc = numberOrZero(activeRaw);
@@ -84,6 +81,6 @@ export function useCompanyMetrics(year: number, month: number) {
     loading,
     error,
     computed,
-    reload: () => load(year, month),
+    reload: () => void load(year, month),
   };
 }

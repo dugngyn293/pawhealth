@@ -6,20 +6,52 @@ import { useCompanyMetrics } from "@/hooks/useCompanyMetrics";
 import { engagementTone, monthYearLabel, riskTone } from "@/lib/dashboard/helpers";
 import { DashboardTopBar } from "@/components/dashboard/DashboardTopBar";
 import { EngagementBar } from "@/components/dashboard/EngagementBar";
-import { IconAlert, IconBars, IconTrend, IconUsers } from "@/components/dashboard/Icons";
+import { IconAlert, IconBars, IconLayers, IconTrend, IconUsers } from "@/components/dashboard/Icons";
 import { formatInt, formatOneDecimal, formatPercent } from "@/lib/format";
 
 export default function DashboardSection() {
-  const now = new Date();
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [year, setYear] = useState(() => new Date().getFullYear());
+  const [month, setMonth] = useState(() => new Date().getMonth() + 1);
 
   const { data, loading, error, computed, reload } = useCompanyMetrics(year, month);
 
   const years = useMemo(() => {
-    const current = now.getFullYear();
-    return [current, current - 1, current - 2, current - 3];
-  }, [now]);
+    const currentYear = new Date().getFullYear();
+    return Array.from({ length: 4 }, (_, index) => currentYear - index);
+  }, []);
+
+  const engagementValue =
+    computed.engagementDisplay === null ? (
+      "—"
+    ) : (
+      <span>
+        {formatOneDecimal(computed.engagementDisplay)}
+        <span className="text-base text-slate-500 dark:text-slate-400"> / 10</span>
+      </span>
+    );
+
+  const engagementSubtitle =
+    computed.engagementDisplay === null ? "Data unavailable" : <EngagementBar score={computed.engagementDisplay} />;
+
+  const engagementPillLabel =
+    computed.engagementDisplay === null
+      ? "Unavailable"
+      : computed.engagementDisplay >= 8
+        ? "Strong Engagement"
+        : "Needs Improvement";
+
+  const activeSubtitle =
+    computed.enrolledCalc === 0
+      ? "0.0% participation rate (no enrolled employees)"
+      : computed.participationIsMeaningful
+        ? `${formatPercent(computed.participationRate)} participation rate`
+        : "Participation rate unavailable";
+
+  const weeklySubtitle = computed.avgWeeklyIsMeaningful
+    ? `Avg ${formatOneDecimal(computed.avgWeeklyPerActive)} per active user`
+    : "Average per active user unavailable";
+
+  const risk = riskTone(computed.alertsDisplay);
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors">
@@ -59,56 +91,21 @@ export default function DashboardSection() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-            {/* ✅ FEATURED hero: Engagement Score */}
             <div className="md:col-span-2">
               <MetricCard
                 featured
                 layout="center"
                 tone="engagement"
-                icon={
-                  <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    className="text-indigo-600 dark:text-indigo-300"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <path d="M12 20l9-5-9-5-9 5 9 5z" />
-                    <path d="M12 12l9-5-9-5-9 5 9 5z" />
-                  </svg>
-                }
+                icon={<IconLayers />}
                 title="Average Engagement Score"
-                value={
-                  computed.engagementDisplay === null ? (
-                    "—"
-                  ) : (
-                    <span>
-                      {formatOneDecimal(computed.engagementDisplay)}
-                      <span className="text-base text-slate-500 dark:text-slate-400"> / 10</span>
-                    </span>
-                  )
-                }
-                subtitle={
-                  computed.engagementDisplay === null ? "Data unavailable" : <EngagementBar score={computed.engagementDisplay} />
-                }
+                value={engagementValue}
+                subtitle={engagementSubtitle}
                 rightSlot={
-                  <Pill
-                    label={
-                      computed.engagementDisplay === null
-                        ? "Unavailable"
-                        : computed.engagementDisplay >= 8
-                          ? "Strong Engagement"
-                          : "Needs Improvement"
-                    }
-                    tone={engagementTone(computed.engagementDisplay)}
-                  />
+                  <Pill label={engagementPillLabel} tone={engagementTone(computed.engagementDisplay)} />
                 }
               />
             </div>
 
-            {/* Other metrics */}
             <MetricCard
               icon={<IconUsers />}
               title="Total Enrolled"
@@ -120,39 +117,24 @@ export default function DashboardSection() {
               icon={<IconTrend />}
               title="Active This Month"
               value={computed.activeDisplay === null ? "—" : formatInt(computed.activeDisplay)}
-              subtitle={
-                computed.enrolledCalc === 0
-                  ? "0.0% participation rate (no enrolled employees)"
-                  : computed.participationIsMeaningful
-                    ? `${formatPercent(computed.participationRate)} participation rate`
-                    : "Participation rate unavailable"
-              }
+              subtitle={activeSubtitle}
             />
 
             <MetricCard
               icon={<IconBars />}
               title="Weekly Checkups"
               value={computed.weeklyDisplay === null ? "—" : formatInt(computed.weeklyDisplay)}
-              subtitle={
-                computed.avgWeeklyIsMeaningful
-                  ? `Avg ${formatOneDecimal(computed.avgWeeklyPerActive)} per active user`
-                  : "Average per active user unavailable"
-              }
+              subtitle={weeklySubtitle}
             />
 
-            {(() => {
-              const r = riskTone(computed.alertsDisplay);
-              return (
-                <MetricCard
-                  icon={<IconAlert />}
-                  title="Risk Alerts Triggered"
-                  value={computed.alertsDisplay === null ? "—" : formatInt(computed.alertsDisplay)}
-                  subtitle={computed.alertsDisplay === null ? "Data unavailable" : "Requires HR attention"}
-                  tone={r.tone}
-                  rightSlot={<Pill label={r.label} tone={r.tone} />}
-                />
-              );
-            })()}
+            <MetricCard
+              icon={<IconAlert />}
+              title="Risk Alerts Triggered"
+              value={computed.alertsDisplay === null ? "—" : formatInt(computed.alertsDisplay)}
+              subtitle={computed.alertsDisplay === null ? "Data unavailable" : "Requires HR attention"}
+              tone={risk.tone}
+              rightSlot={<Pill label={risk.label} tone={risk.tone} />}
+            />
           </div>
         )}
       </div>
