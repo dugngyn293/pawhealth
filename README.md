@@ -67,6 +67,7 @@ lib/
 - Metrics can be missing, zero, or delayed, so the UI must remain valid in incomplete states.
 - Dashboard users are HR/internal users who need a quick monthly health snapshot, not detailed drill-down analytics.
 - Current scope targets one company view at a time.
+- Managers can select the month and year to track the company’s information for that specific month.
 
 ## 4) What I Would Improve With More Time
 
