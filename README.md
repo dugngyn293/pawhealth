@@ -74,4 +74,3 @@ lib/
 - Add tests (unit tests for helpers/hooks and integration tests for loading/error/data states).
 - Improve accessibility (keyboard/focus behavior, ARIA review, contrast audit).
 - add the route protection to prevent someone try to access the web with many tries
-```
