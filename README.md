@@ -1,5 +1,7 @@
 A Next.js dashboard for viewing monthly employee wellness engagement metrics for an enterprise HR team.
-![alt text](image-1.png)
+
+
+![Dashboard Screenshot](image-1.png)
 ## Overview
 This app renders a metrics dashboard with:
 - A month/year filter
